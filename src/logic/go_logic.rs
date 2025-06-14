@@ -21,25 +21,24 @@ impl GoLogic {
         }
     }
 
-    pub fn set_black_stone(&mut self, x: usize, y: usize) {
-        self.board[y][x] = Occupy::Black;
+    pub fn roughly_set_black_stone(&mut self, x: usize, y: usize) {
+        self.board[x][y] = Occupy::Black;
     }
 
-    pub fn set_white_stone(&mut self, x: usize, y: usize) {
-        self.board[y][x] = Occupy::White;
+    pub fn roughly_set_white_stone(&mut self, x: usize, y: usize) {
+        self.board[x][y] = Occupy::White;
     }
 
     pub fn print_board_info(&self) {
-        print!("   ");
-        for col in 0..LOGIC_WIDTH {
-            let label = (b'A' + col as u8) as char;
-            print!("{} ", label);
-        }
-        println!();
+        let width = self.board.len();
+        let height = self.board[0].len();
 
-        for (row_idx, row) in self.board.iter().enumerate() {
-            print!("{:2} ", row_idx + 1);   
-            for &cell in row.iter() {
+
+        println!();
+        for j in 0..height {
+            print!("{:2} ", height - j - 1);
+            for i in 0..width {
+                let cell = self.board[i][height - j - 1];
                 match cell {
                     Occupy::Free => print!(". "),
                     Occupy::Black => print!("X "),
@@ -48,5 +47,24 @@ impl GoLogic {
             }
             println!();
         }
+
+
+        // for (row_idx, row) in self.board.iter().enumerate() {
+        //     print!("{:2} ", row_idx + 1);   
+        //     for &cell in row.iter() {
+        //         match cell {
+        //             Occupy::Free => print!(". "),
+        //             Occupy::Black => print!("X "),
+        //             Occupy::White => print!("O "),
+        //         }
+        //     }
+        //     println!();
+        // }
+        print!("   ");
+        for col in 0..LOGIC_WIDTH {
+            let label = (b'A' + col as u8) as char;
+            print!("{} ", label);
+        }
+        println!();
     }
 }
