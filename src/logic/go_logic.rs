@@ -1,5 +1,25 @@
 use std::{collections::VecDeque};
 
+trait SafeSetChar {
+    fn set_char(&mut self, idx: usize, c: char) -> bool;
+}
+
+impl SafeSetChar for String {
+    fn set_char(&mut self, idx: usize, c: char) -> bool {
+        let new_len = c.len_utf8();
+        let bytes = self.as_bytes();
+
+        if !self.is_char_boundary(idx) || bytes.len() - idx < new_len {
+            return false;
+        }
+        unsafe {
+            let slice = self.as_bytes_mut();
+            c.encode_utf8(&mut slice[idx..idx + new_len]);
+        }
+        true
+    }
+}
+
 const LOGIC_WIDTH: usize = 19;
 const LOGIC_HEIGHT: usize = 19;
 const SEARCH_DIRECTION: [[usize; 2]; 2] = [
@@ -18,6 +38,8 @@ pub struct GoLogic {
     is_black_turn: bool,
     board: [[Occupy; LOGIC_HEIGHT]; LOGIC_WIDTH],
     related_stones: VecDeque<(usize, usize)>,
+    board_history: Box<VecDeque<String>>,
+    turn_history: Box<VecDeque<bool>>,
 }
 
 impl GoLogic {
@@ -26,15 +48,9 @@ impl GoLogic {
             is_black_turn: true, 
             board: [[Occupy::Free; LOGIC_HEIGHT]; LOGIC_WIDTH],
             related_stones: VecDeque::new(),
+            board_history: Box::new(VecDeque::new()),
+            turn_history: Box::new(VecDeque::new()),
         }
-    }
-
-    pub fn roughly_set_black_stone(&mut self, x: usize, y: usize) {
-        self.board[x][y] = Occupy::Black;
-    }
-
-    pub fn roughly_set_white_stone(&mut self, x: usize, y: usize) {
-        self.board[x][y] = Occupy::White;
     }
 
     #[inline]
@@ -45,6 +61,20 @@ impl GoLogic {
     #[inline]
     fn is_occupied_by_stone(&self, x: usize, y: usize) -> bool {
         self.board[x][y] != Occupy::Free
+    }
+
+    fn get_cur_board_string(&self) -> String {
+        let mut cur_string = "0".repeat(LOGIC_WIDTH * LOGIC_HEIGHT);
+        for i in 0..LOGIC_WIDTH {
+            for j in 0..LOGIC_HEIGHT {
+                let mut stone = '0';
+                if self.is_occupied_by_stone(i, j) {
+                    stone = if self.board[i][j] == Occupy::Black {'1'} else {'2'};
+                }
+                cur_string.set_char(i * LOGIC_WIDTH + j, stone);
+            }
+        }
+        return cur_string;
     }
 
     pub fn get_local_liberty(&mut self, x:usize, y: usize, need_record: bool) -> i32 {
@@ -132,11 +162,43 @@ impl GoLogic {
         self.board[x][y] = friend;
 
         let local_liberty = self.get_local_liberty(x, y, false);
-
         if local_liberty == 0 {
-            self.board[x][y] = Occupy::Free;
-            return;
+            let mut will_kill_enemy = false;
+            for i in 0..SEARCH_DIRECTION.len() {
+                let x_next = x + SEARCH_DIRECTION[i][0];
+                let y_next = y + SEARCH_DIRECTION[i][1];
+                if !self.is_cord_valid(x_next, y_next) {
+                    continue;
+                }
+                else if self.board[x_next][y_next] != hostile {
+                    continue;
+                }
+                let hostile_liberty = self.get_local_liberty(x_next, y_next, false);
+                if hostile_liberty == 0 {
+                    will_kill_enemy = true;
+                }
+            }
+
+            for i in 0..SEARCH_DIRECTION.len() {
+                let x_next = x - SEARCH_DIRECTION[i][0];
+                let y_next = y - SEARCH_DIRECTION[i][1];
+                if !self.is_cord_valid(x_next, y_next) {
+                    continue;
+                }
+                else if self.board[x_next][y_next] != hostile {
+                    continue;
+                }
+                let hostile_liberty = self.get_local_liberty(x_next, y_next, false);
+                if hostile_liberty == 0 {
+                    will_kill_enemy = true;
+                }
+            }
+            if !will_kill_enemy {
+                self.board[x][y] = Occupy::Free;
+                return;
+            }
         }
+
         for i in 0..SEARCH_DIRECTION.len() {
             let x_next = x + SEARCH_DIRECTION[i][0];
             let y_next = y + SEARCH_DIRECTION[i][1];
@@ -148,7 +210,23 @@ impl GoLogic {
                 continue;
             }
             let hostile_liberty = self.get_local_liberty(x_next, y_next, true);
+
             if hostile_liberty == 0 {
+                let board_history_len = self.board_history.len();
+                if board_history_len > 1 {
+                    let mut cur_board_info = self.get_cur_board_string();
+                    let stone = if self.is_black_turn {'1'} else {'2'};
+                    cur_board_info.set_char(x * LOGIC_WIDTH + y, stone);
+                    for j in 0..self.related_stones.len() {
+                        let (x_cur, y_cur) = self.related_stones[j];
+                        cur_board_info.set_char(x_cur * LOGIC_WIDTH + y_cur, '0');
+                    }
+                    if cur_board_info == self.board_history[board_history_len - 2] {
+                        self.board[x][y] = Occupy::Free;
+                        return;
+                    }
+                }
+
                 while !self.related_stones.is_empty() {
                     if let Some((x_cur, y_cur)) = self.related_stones.pop_back() {
                         self.board[x_cur][y_cur] = Occupy::Free;
@@ -159,6 +237,7 @@ impl GoLogic {
                 self.related_stones.clear();
             }
         }
+
         for i in 0..SEARCH_DIRECTION.len() {
             if x >= SEARCH_DIRECTION[i][0] && y >= SEARCH_DIRECTION[i][1] {
                 let x_next = x - SEARCH_DIRECTION[i][0];
@@ -172,6 +251,22 @@ impl GoLogic {
                 }
                 let hostile_liberty = self.get_local_liberty(x_next, y_next, true);
                 if hostile_liberty == 0 {
+
+                    let board_history_len = self.board_history.len();
+                    if board_history_len > 1 {
+                        let mut cur_board_info = self.get_cur_board_string();
+                        let stone = if self.is_black_turn {'1'} else {'2'};
+                        cur_board_info.set_char(x * LOGIC_WIDTH + y, stone);
+                        for j in 0..self.related_stones.len() {
+                            let (x_cur, y_cur) = self.related_stones[j];
+                            cur_board_info.set_char(x_cur * LOGIC_WIDTH + y_cur, '0');
+                        }
+                        if cur_board_info == self.board_history[board_history_len - 2] {
+                            self.board[x][y] = Occupy::Free;
+                            return;
+                        }
+                    }
+
                     while !self.related_stones.is_empty() {
                         if let Some((x_cur, y_cur)) = self.related_stones.pop_back() {
                             self.board[x_cur][y_cur] = Occupy::Free;
@@ -183,7 +278,13 @@ impl GoLogic {
                 }
             }
         }
+
         self.is_black_turn = !self.is_black_turn;
+
+        let cur_board_info = self.get_cur_board_string();
+
+        self.board_history.push_back(cur_board_info);
+        self.turn_history.push_back(self.is_black_turn);
     }
 
     pub fn print_board_info(&self) {
