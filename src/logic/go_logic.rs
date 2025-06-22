@@ -22,9 +22,11 @@ impl SafeSetChar for String {
 
 const LOGIC_WIDTH: usize = 19;
 const LOGIC_HEIGHT: usize = 19;
-const SEARCH_DIRECTION: [[usize; 2]; 2] = [
+const SEARCH_DIRECTION: [[i8; 2]; 4] = [
     [0, 1],
     [1, 0],
+    [0, -1],
+    [-1, 0],
 ];
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -48,14 +50,14 @@ impl GoLogic {
             is_black_turn: true, 
             board: [[Occupy::Free; LOGIC_HEIGHT]; LOGIC_WIDTH],
             related_stones: VecDeque::new(),
-            board_history: Box::new(VecDeque::new()),
-            turn_history: Box::new(VecDeque::new()),
+            board_history: Box::new(VecDeque::with_capacity(300)),
+            turn_history: Box::new(VecDeque::with_capacity(300)),
         }
     }
 
     #[inline]
-    fn is_cord_valid(&self, x: usize, y: usize) -> bool {
-        x < self.board.len() && y < self.board[0].len()
+    fn is_cord_valid(&self, x: i8, y: i8) -> bool {
+        x >= 0 && x < LOGIC_WIDTH as i8 && y >= 0 &&  y < LOGIC_HEIGHT as i8
     }
 
     #[inline]
@@ -64,27 +66,31 @@ impl GoLogic {
     }
 
     fn get_cur_board_string(&self) -> String {
-        let mut cur_string = "0".repeat(LOGIC_WIDTH * LOGIC_HEIGHT);
-        for i in 0..LOGIC_WIDTH {
-            for j in 0..LOGIC_HEIGHT {
-                let mut stone = '0';
-                if self.is_occupied_by_stone(i, j) {
-                    stone = if self.board[i][j] == Occupy::Black {'1'} else {'2'};
-                }
-                cur_string.set_char(i * LOGIC_WIDTH + j, stone);
+        let mut cur_string = String::with_capacity(LOGIC_WIDTH * LOGIC_HEIGHT);
+        for j in 0..LOGIC_HEIGHT {
+            for i in 0..LOGIC_WIDTH {
+                cur_string.push(match self.board[i][j] {
+                    Occupy::Free => '0',
+                    Occupy::Black => '1',
+                    Occupy::White => '2',
+                });
             }
         }
         return cur_string;
     }
 
-    pub fn get_local_liberty(&mut self, x:usize, y: usize, need_record: bool) -> i32 {
+    pub fn get_local_liberty(&mut self, x:i8, y: i8, need_record: bool) -> i32 {
         let mut local_liberty: i32 = 0;
 
         if !self.is_cord_valid(x, y) {
             println!("Cord ({}, {}) is not valid.", x, y);
             return local_liberty;
         }
-        else if !self.is_occupied_by_stone(x, y) {
+
+        let x = x as usize;
+        let y = y as usize;
+
+        if !self.is_occupied_by_stone(x, y) {
             println!("Cord ({}, {}) is not occupied by stone.", x, y);
             return local_liberty;
         }
@@ -105,12 +111,17 @@ impl GoLogic {
                 }
 
                 for i in 0..SEARCH_DIRECTION.len() {
-                    let x_next = x_cri + SEARCH_DIRECTION[i][0];
-                    let y_next = y_cri + SEARCH_DIRECTION[i][1];
+                    let x_next = (x_cri as i8) + SEARCH_DIRECTION[i][0];
+                    let y_next = (y_cri as i8) + SEARCH_DIRECTION[i][1];
+
                     if !self.is_cord_valid(x_next, y_next) {
                         continue;
                     }
-                    else if !unvisited[x_next][y_next] {
+                    
+                    let x_next = x_next as usize;
+                    let y_next = y_next as usize;
+
+                    if !unvisited[x_next][y_next] {
                         continue;
                     }
 
@@ -122,70 +133,37 @@ impl GoLogic {
                     }
                     unvisited[x_next][y_next] = false;
                 }
-                for i in 0..SEARCH_DIRECTION.len() {
-                    if x_cri >= SEARCH_DIRECTION[i][0] && y_cri >= SEARCH_DIRECTION[i][1] {
-                        let x_next = x_cri - SEARCH_DIRECTION[i][0];
-                        let y_next = y_cri - SEARCH_DIRECTION[i][1];
-                        if !self.is_cord_valid(x_next, y_next) {
-                            continue;
-                        }
-                        else if !unvisited[x_next][y_next] {
-                            continue;
-                        }
-
-                        if self.board[x_next][y_next] == friend {
-                            stack.push_back((x_next, y_next));
-                        }
-                        else if self.board[x_next][y_next] == Occupy::Free {
-                            local_liberty += 1;
-                        }
-                        unvisited[x_next][y_next] = false;
-                    }
-                }
             }
         }
         return local_liberty;
     }
 
-    pub fn set_stone(&mut self, x: usize, y: usize) {
+    pub fn set_stone(&mut self, x: i8, y: i8) {
         if !self.is_cord_valid(x, y) {
             println!("Cord ({}, {}) is not valid.", x, y);
             return;
         }
-        else if self.is_occupied_by_stone(x, y) {
+        
+        if self.is_occupied_by_stone(x as usize, y as usize) {
             println!("Cord ({}, {}) is not occupied by stone.", x, y);
             return;
         }
 
         let friend = if self.is_black_turn {Occupy::Black} else {Occupy::White};
         let hostile = if self.is_black_turn {Occupy::White} else {Occupy::Black};
-        self.board[x][y] = friend;
+        self.board[x as usize][y as usize] = friend;
 
         let local_liberty = self.get_local_liberty(x, y, false);
         if local_liberty == 0 {
             let mut will_kill_enemy = false;
             for i in 0..SEARCH_DIRECTION.len() {
-                let x_next = x + SEARCH_DIRECTION[i][0];
-                let y_next = y + SEARCH_DIRECTION[i][1];
+                let x_next = x as i8 + SEARCH_DIRECTION[i][0];
+                let y_next = y as i8 + SEARCH_DIRECTION[i][1];
                 if !self.is_cord_valid(x_next, y_next) {
                     continue;
                 }
-                else if self.board[x_next][y_next] != hostile {
-                    continue;
-                }
-                let hostile_liberty = self.get_local_liberty(x_next, y_next, false);
-                if hostile_liberty == 0 {
-                    will_kill_enemy = true;
-                }
-            }
-
-            for i in 0..SEARCH_DIRECTION.len() {
-                let x_next = x - SEARCH_DIRECTION[i][0];
-                let y_next = y - SEARCH_DIRECTION[i][1];
-                if !self.is_cord_valid(x_next, y_next) {
-                    continue;
-                }
-                else if self.board[x_next][y_next] != hostile {
+                
+                if self.board[x_next as usize][y_next as usize] != hostile {
                     continue;
                 }
                 let hostile_liberty = self.get_local_liberty(x_next, y_next, false);
@@ -194,7 +172,7 @@ impl GoLogic {
                 }
             }
             if !will_kill_enemy {
-                self.board[x][y] = Occupy::Free;
+                self.board[x as usize][y as usize] = Occupy::Free;
                 return;
             }
         }
@@ -206,7 +184,7 @@ impl GoLogic {
             if !self.is_cord_valid(x_next, y_next) {
                 continue;
             }
-            else if self.board[x_next][y_next] != hostile {
+            else if self.board[x_next as usize][y_next as usize] != hostile {
                 continue;
             }
             let hostile_liberty = self.get_local_liberty(x_next, y_next, true);
@@ -216,13 +194,13 @@ impl GoLogic {
                 if board_history_len > 1 {
                     let mut cur_board_info = self.get_cur_board_string();
                     let stone = if self.is_black_turn {'1'} else {'2'};
-                    cur_board_info.set_char(x * LOGIC_WIDTH + y, stone);
+                    cur_board_info.set_char((x as usize) * LOGIC_WIDTH + (y as usize), stone);
                     for j in 0..self.related_stones.len() {
                         let (x_cur, y_cur) = self.related_stones[j];
                         cur_board_info.set_char(x_cur * LOGIC_WIDTH + y_cur, '0');
                     }
                     if cur_board_info == self.board_history[board_history_len - 2] {
-                        self.board[x][y] = Occupy::Free;
+                        self.board[x as usize][y as usize] = Occupy::Free;
                         return;
                     }
                 }
@@ -235,47 +213,6 @@ impl GoLogic {
             }
             else {
                 self.related_stones.clear();
-            }
-        }
-
-        for i in 0..SEARCH_DIRECTION.len() {
-            if x >= SEARCH_DIRECTION[i][0] && y >= SEARCH_DIRECTION[i][1] {
-                let x_next = x - SEARCH_DIRECTION[i][0];
-                let y_next = y - SEARCH_DIRECTION[i][1];
-
-                if !self.is_cord_valid(x_next, y_next) {
-                    continue;
-                }
-                else if self.board[x_next][y_next] != hostile {
-                    continue;
-                }
-                let hostile_liberty = self.get_local_liberty(x_next, y_next, true);
-                if hostile_liberty == 0 {
-
-                    let board_history_len = self.board_history.len();
-                    if board_history_len > 1 {
-                        let mut cur_board_info = self.get_cur_board_string();
-                        let stone = if self.is_black_turn {'1'} else {'2'};
-                        cur_board_info.set_char(x * LOGIC_WIDTH + y, stone);
-                        for j in 0..self.related_stones.len() {
-                            let (x_cur, y_cur) = self.related_stones[j];
-                            cur_board_info.set_char(x_cur * LOGIC_WIDTH + y_cur, '0');
-                        }
-                        if cur_board_info == self.board_history[board_history_len - 2] {
-                            self.board[x][y] = Occupy::Free;
-                            return;
-                        }
-                    }
-
-                    while !self.related_stones.is_empty() {
-                        if let Some((x_cur, y_cur)) = self.related_stones.pop_back() {
-                            self.board[x_cur][y_cur] = Occupy::Free;
-                        }
-                    }
-                }
-                else {
-                    self.related_stones.clear();
-                }
             }
         }
 
