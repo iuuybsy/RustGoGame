@@ -117,8 +117,7 @@ impl GoLogic {
     }
 
     fn is_ko_violation(&self, move_string: &str) -> bool {
-        self.board_history.len() > 1 && 
-        move_string == &self.board_history[self.board_history.len() - 2]
+        self.board_history.len() > 1 && move_string == &self.board_history[self.board_history.len() - 2]
     }
 
     pub fn place_stone(&mut self, x: i8, y: i8) -> bool {
@@ -131,21 +130,18 @@ impl GoLogic {
         if self.board[x][y] != Occupy::Free {
             return false;
         }
-        
-        let player = self.current_player;
-        self.board[x][y] = player;
-        let opponent = match player {
+
+        self.board[x][y] = self.current_player;
+        let opponent = match self.current_player {
             Occupy::Black => Occupy::White,
             Occupy::White => Occupy::Black,
             _ => unreachable!(),
         };
         
-        // 检查新放置的棋子是否存活
-        let (own_liberties, own_group) = self.get_group_and_liberties(x, y);
+        let (own_liberties, _) = self.get_group_and_liberties(x, y);
         let mut move_valid = own_liberties > 0;
         let mut captures = Vec::new();
         
-        // 检查是否可以提走对方棋子
         if !move_valid {
             for (dx, dy) in SEARCH_DIRECTIONS {
                 let nx = x.wrapping_add(dx as usize);
@@ -170,15 +166,13 @@ impl GoLogic {
             return false;
         }
         
-        // 构建当前棋盘状态
         let mut cur_state = self.get_board_string();
-        cur_state.set_char(x * LOGIC_WIDTH + y, match player {
+        cur_state.set_char(x * LOGIC_WIDTH + y, match self.current_player {
             Occupy::Black => '1',
             Occupy::White => '2',
             _ => '0'
         });
         
-        // 提走对方死棋并记录
         for group in &captures {
             for &(cx, cy) in group {
                 cur_state.set_char(cx * LOGIC_WIDTH + cy, '0');
@@ -186,7 +180,6 @@ impl GoLogic {
             self.capture_group(group);
         }
         
-        // 劫争检查
         if self.is_ko_violation(&cur_state) {
             self.board[x][y] = Occupy::Free;
             for group in captures {
@@ -195,9 +188,8 @@ impl GoLogic {
             return false;
         }
         
-        // 更新历史
         self.board_history.push_back(cur_state);
-        self.turn_history.push_back(player);
+        self.turn_history.push_back(self.current_player);
         self.current_player = opponent;
         true
     }
