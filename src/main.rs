@@ -1,7 +1,12 @@
+mod logic;
+
+use std::cell::RefCell;
 use ggez::{
     Context, ContextBuilder, GameResult, conf, event,
     graphics::{self, Canvas, Color, DrawMode, DrawParam, Mesh},
 };
+use logic::go_logic::GoLogic;
+
 
 const UNIT: f32 = 51.0;
 const BOARD_WIDTH: f32 = 21.0 * UNIT;
@@ -26,7 +31,7 @@ const STONE_INNER_RADIUS: f32 = 0.8 * STONE_OUTER_RADIUS;
 fn grid_to_pixel(grid_cord: [i32; 2]) -> [f32; 2] {
     [
         (grid_cord[0] as f32 + 1.5) * UNIT,
-        (grid_cord[1] as f32 + 1.5) * UNIT,
+        BOARD_HEIGHT - (grid_cord[1] as f32 + 1.5) * UNIT,
     ]
 }
 
@@ -47,12 +52,42 @@ fn render_circle(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2], radiu
     canvas.draw(&circle, DrawParam::default());
 }
 
-fn render_square() {
+fn render_square(
+    canvas: &mut Canvas,
+    ctx: &mut Context,
+    center: [i32; 2],
+    size: f32,
+    color: Color,
+) {
 
+    let center = grid_to_pixel(center);
+    let half_size = 0.5 * size;
+    let vertices = [
+        [center[0] - half_size, center[1] - half_size],        // 左上
+        [center[0] + half_size, center[1] - half_size],    // 右上
+        [center[0] + half_size, center[1] + half_size],// 右下
+        [center[0] - half_size, center[1] + half_size],    // 左下
+    ];
+
+    let square = Mesh::new_polygon(
+        ctx,
+        DrawMode::fill(),
+        &vertices,
+        color,
+    ).expect("failed to create square mesh");
+    canvas.draw(&square, DrawParam::default());
 }
 
 fn render_black_dot(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) {
     render_circle(canvas, ctx, center, DOT_RADIUS, Color::BLACK);
+}
+
+fn render_black_square(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) {
+    render_square(canvas, ctx, center, DOT_RADIUS * 2.0, Color::BLACK);
+}
+
+fn render_white_square(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) {
+    render_square(canvas, ctx, center, DOT_RADIUS * 2.0, Color::WHITE);
 }
 
 fn render_black_stone(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) {
@@ -66,11 +101,40 @@ fn render_white_stone(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) 
 
 
 
-struct MainState;
+struct MainState {
+    logic: RefCell<GoLogic>,
+    mouse_x_num: i32,
+    mouse_y_num: i32,
+}
 
 impl MainState {
     fn new() -> GameResult<MainState> {
-        Ok(MainState)
+        Ok(MainState{
+            logic: RefCell::new(GoLogic::new()),
+            mouse_x_num: -1,
+            mouse_y_num: -1,
+        })
+    }
+
+    fn render_background(&mut self, canvas: &mut Canvas, ctx: &mut Context) {
+        for i in 0..NUM {
+            render_line(canvas, ctx, [i, 0], [i, 18]);
+            render_line(canvas, ctx, [0, i], [18, i]);
+        }
+
+        for [x, y] in STAR_POSITION {
+            render_black_dot(canvas, ctx, [x, y]);
+        }
+    }
+
+    fn render_mouse_hint(&mut self, canvas: &mut Canvas, ctx: &mut Context) {
+        let center = [self.mouse_x_num, self.mouse_y_num];
+        if self.logic.borrow().is_blakc_turn() {
+            render_black_square(canvas, ctx, center);
+        }
+        else {
+            render_white_square(canvas, ctx, center);
+        }
     }
 }
 
@@ -85,14 +149,9 @@ impl event::EventHandler for MainState {
 
         let mut canvas = graphics::Canvas::from_frame(ctx, wood_color);
 
-        for i in 0..NUM {
-            render_line(&mut canvas, ctx, [i, 0], [i, 18]);
-            render_line(&mut canvas, ctx, [0, i], [18, i]);
-        }
+        self.render_background(&mut canvas, ctx);
 
-        for [x, y] in STAR_POSITION {
-            render_black_dot(&mut canvas, ctx, [x, y]);
-        }
+        self.render_mouse_hint(&mut canvas, ctx);
 
         render_black_stone(&mut canvas, ctx, [0, 0]);
         render_black_stone(&mut canvas, ctx, [1, 1]);
@@ -112,9 +171,9 @@ impl event::EventHandler for MainState {
         _dx: f32,
         _dy: f32,
     ) -> GameResult {
-        let x_num: i32 = (x / UNIT).floor() as i32 - 1;
-        let y_num: i32 = 19 - (y / UNIT).floor() as i32;
-        println!("Mouse position: ({}, {})", x_num, y_num);
+        self.mouse_x_num = (x / UNIT).floor() as i32 - 1;
+        self.mouse_y_num = 19 - (y / UNIT).floor() as i32;
+        println!("Mouse position: ({}, {})", self.mouse_x_num, self.mouse_y_num);
         Ok(())
     }
 }
