@@ -51,6 +51,10 @@ impl GoLogic {
         }
     }
 
+    pub fn is_blakc_turn(&self) -> bool {
+        self.current_player == Occupy::Black
+    }
+
     #[inline]
     fn in_bounds(&self, x: i8, y: i8) -> bool {
         x >= 0 && x < LOGIC_WIDTH as i8 && y >= 0 && y < LOGIC_HEIGHT as i8
