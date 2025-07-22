@@ -39,18 +39,16 @@ fn render_line(canvas: &mut Canvas, ctx: &mut Context, start_point: [i32; 2], en
     canvas.draw(&diagonal_line, DrawParam::default());
 }
 
-fn render_circle(
-    canvas: &mut Canvas,
-    ctx: &mut Context,
-    center: [i32; 2],
-    radius: f32,
-    color: Color,
-) {
+fn render_circle(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2], radius: f32, color: Color) {
     let center = grid_to_pixel(center);
     let circle = Mesh::new_circle(ctx, DrawMode::fill(), center, radius, 0.1, color)
         .expect("failed to create circle mesh");
 
     canvas.draw(&circle, DrawParam::default());
+}
+
+fn render_square() {
+
 }
 
 fn render_black_dot(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) {
@@ -65,6 +63,8 @@ fn render_white_stone(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) 
     render_circle(canvas, ctx, center, STONE_OUTER_RADIUS, Color::BLACK);
     render_circle(canvas, ctx, center, STONE_INNER_RADIUS, Color::WHITE);
 }
+
+
 
 struct MainState;
 
@@ -101,6 +101,20 @@ impl event::EventHandler for MainState {
         render_white_stone(&mut canvas, ctx, [0, 1]);
 
         canvas.finish(ctx)?;
+        Ok(())
+    }
+
+    fn mouse_motion_event(
+        &mut self,
+        _ctx: &mut Context,
+        x: f32,
+        y: f32,
+        _dx: f32,
+        _dy: f32,
+    ) -> GameResult {
+        let x_num: i32 = (x / UNIT).floor() as i32 - 1;
+        let y_num: i32 = 19 - (y / UNIT).floor() as i32;
+        println!("Mouse position: ({}, {})", x_num, y_num);
         Ok(())
     }
 }
