@@ -1,4 +1,4 @@
-use std::collections::{VecDeque};
+use std::collections::VecDeque;
 
 trait SafeSetChar {
     fn set_char(&mut self, idx: usize, c: char) -> bool;
@@ -8,11 +8,11 @@ impl SafeSetChar for String {
     fn set_char(&mut self, idx: usize, c: char) -> bool {
         let bytes = self.as_bytes();
         let new_len = c.len_utf8();
-        
+
         if !self.is_char_boundary(idx) || bytes.len().saturating_sub(idx) < new_len {
             return false;
         }
-        
+
         unsafe {
             let slice = self.as_bytes_mut();
             c.encode_utf8(&mut slice[idx..idx + new_len]);
@@ -26,7 +26,7 @@ const LOGIC_HEIGHT: usize = 19;
 const SEARCH_DIRECTIONS: [(i8, i8); 4] = [(0, 1), (1, 0), (0, -1), (-1, 0)];
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Occupy {
+pub enum Occupy {
     Free,
     Black,
     White,
@@ -34,7 +34,7 @@ enum Occupy {
 
 pub struct GoLogic {
     current_player: Occupy,
-    board: [[Occupy; LOGIC_HEIGHT]; LOGIC_WIDTH],
+    pub board: [[Occupy; LOGIC_HEIGHT]; LOGIC_WIDTH],
     visited: [[bool; LOGIC_HEIGHT]; LOGIC_WIDTH],
     board_history: VecDeque<String>,
     turn_history: VecDeque<Occupy>,
@@ -60,7 +60,7 @@ impl GoLogic {
         x >= 0 && x < LOGIC_WIDTH as i8 && y >= 0 && y < LOGIC_HEIGHT as i8
     }
 
-    fn get_board_string(&self) -> String {
+    pub fn get_board_string(&self) -> String {
         let mut s = String::with_capacity(LOGIC_WIDTH * LOGIC_HEIGHT);
         for row in self.board {
             for cell in row {
@@ -84,25 +84,25 @@ impl GoLogic {
         let mut group = Vec::new();
         let mut liberties = 0;
         let color = self.board[x][y];
-        
+
         stack.push((x, y));
         self.visited[x][y] = true;
-        
+
         while let Some((cx, cy)) = stack.pop() {
             group.push((cx, cy));
-            
+
             for (dx, dy) in SEARCH_DIRECTIONS {
                 let nx = cx.wrapping_add(dx as usize);
                 let ny = cy.wrapping_add(dy as usize);
-                
+
                 if nx >= LOGIC_WIDTH || ny >= LOGIC_HEIGHT {
                     continue;
                 }
-                
+
                 if self.visited[nx][ny] {
                     continue;
                 }
-                
+
                 self.visited[nx][ny] = true;
                 match self.board[nx][ny] {
                     same if same == color => stack.push((nx, ny)),
@@ -121,18 +121,21 @@ impl GoLogic {
     }
 
     fn is_ko_violation(&self, move_string: &str) -> bool {
-        self.board_history.len() > 1 && move_string == &self.board_history[self.board_history.len() - 2]
+        self.board_history.len() > 1
+            && move_string == &self.board_history[self.board_history.len() - 2]
     }
 
-    pub fn place_stone(&mut self, x: i8, y: i8) -> bool {
+    pub fn place_stone(&mut self, x: i8, y: i8) {
         if !self.in_bounds(x, y) {
-            return false;
+            // return false;
+            return;
         }
-        
+
         let (x, y) = (x as usize, y as usize);
-        
+
         if self.board[x][y] != Occupy::Free {
-            return false;
+            // return false;
+            return;
         }
 
         self.board[x][y] = self.current_player;
@@ -141,20 +144,20 @@ impl GoLogic {
             Occupy::White => Occupy::Black,
             _ => unreachable!(),
         };
-        
+
         let (own_liberties, _) = self.get_group_and_liberties(x, y);
         let mut move_valid = own_liberties > 0;
         let mut captures = Vec::new();
-        
+
         if !move_valid {
             for (dx, dy) in SEARCH_DIRECTIONS {
                 let nx = x.wrapping_add(dx as usize);
                 let ny = y.wrapping_add(dy as usize);
-                
+
                 if nx >= LOGIC_WIDTH || ny >= LOGIC_HEIGHT {
                     continue;
                 }
-                
+
                 if self.board[nx][ny] == opponent {
                     let (lib, group) = self.get_group_and_liberties(nx, ny);
                     if lib == 0 {
@@ -164,38 +167,43 @@ impl GoLogic {
                 }
             }
         }
-        
+
         if !move_valid {
             self.board[x][y] = Occupy::Free;
-            return false;
+            // return false;
+            return;
         }
-        
+
         let mut cur_state = self.get_board_string();
-        cur_state.set_char(x * LOGIC_WIDTH + y, match self.current_player {
-            Occupy::Black => '1',
-            Occupy::White => '2',
-            _ => '0'
-        });
-        
+        cur_state.set_char(
+            x * LOGIC_WIDTH + y,
+            match self.current_player {
+                Occupy::Black => '1',
+                Occupy::White => '2',
+                _ => '0',
+            },
+        );
+
         for group in &captures {
             for &(cx, cy) in group {
                 cur_state.set_char(cx * LOGIC_WIDTH + cy, '0');
             }
             self.capture_group(group);
         }
-        
+
         if self.is_ko_violation(&cur_state) {
             self.board[x][y] = Occupy::Free;
             for group in captures {
                 self.capture_group(&group);
             }
-            return false;
+            // return false;
+            return;
         }
-        
+
         self.board_history.push_back(cur_state);
         self.turn_history.push_back(self.current_player);
         self.current_player = opponent;
-        true
+        // true
     }
 
     pub fn print_board(&self) {
@@ -203,15 +211,18 @@ impl GoLogic {
         for y in (0..LOGIC_HEIGHT).rev() {
             print!("{:2} ", y + 1);
             for x in 0..LOGIC_WIDTH {
-                print!("{} ", match self.board[x][y] {
-                    Occupy::Free => '.',
-                    Occupy::Black => 'X',
-                    Occupy::White => 'O',
-                });
+                print!(
+                    "{} ",
+                    match self.board[x][y] {
+                        Occupy::Free => '.',
+                        Occupy::Black => 'X',
+                        Occupy::White => 'O',
+                    }
+                );
             }
             println!();
         }
-        
+
         print!("   ");
         for x in 0..LOGIC_WIDTH {
             print!("{} ", (b'A' + x as u8) as char);

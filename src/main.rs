@@ -1,12 +1,13 @@
 mod logic;
 
-use std::cell::RefCell;
 use ggez::{
     Context, ContextBuilder, GameResult, conf, event,
     graphics::{self, Canvas, Color, DrawMode, DrawParam, Mesh},
 };
 use logic::go_logic::GoLogic;
+use std::cell::RefCell;
 
+use crate::logic::go_logic;
 
 const UNIT: f32 = 51.0;
 const BOARD_WIDTH: f32 = 21.0 * UNIT;
@@ -44,7 +45,13 @@ fn render_line(canvas: &mut Canvas, ctx: &mut Context, start_point: [i32; 2], en
     canvas.draw(&diagonal_line, DrawParam::default());
 }
 
-fn render_circle(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2], radius: f32, color: Color) {
+fn render_circle(
+    canvas: &mut Canvas,
+    ctx: &mut Context,
+    center: [i32; 2],
+    radius: f32,
+    color: Color,
+) {
     let center = grid_to_pixel(center);
     let circle = Mesh::new_circle(ctx, DrawMode::fill(), center, radius, 0.1, color)
         .expect("failed to create circle mesh");
@@ -59,22 +66,17 @@ fn render_square(
     size: f32,
     color: Color,
 ) {
-
     let center = grid_to_pixel(center);
     let half_size = 0.5 * size;
     let vertices = [
-        [center[0] - half_size, center[1] - half_size],        // 左上
-        [center[0] + half_size, center[1] - half_size],    // 右上
-        [center[0] + half_size, center[1] + half_size],// 右下
-        [center[0] - half_size, center[1] + half_size],    // 左下
+        [center[0] - half_size, center[1] - half_size],
+        [center[0] + half_size, center[1] - half_size],
+        [center[0] + half_size, center[1] + half_size],
+        [center[0] - half_size, center[1] + half_size],
     ];
 
-    let square = Mesh::new_polygon(
-        ctx,
-        DrawMode::fill(),
-        &vertices,
-        color,
-    ).expect("failed to create square mesh");
+    let square = Mesh::new_polygon(ctx, DrawMode::fill(), &vertices, color)
+        .expect("failed to create square mesh");
     canvas.draw(&square, DrawParam::default());
 }
 
@@ -99,8 +101,6 @@ fn render_white_stone(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) 
     render_circle(canvas, ctx, center, STONE_INNER_RADIUS, Color::WHITE);
 }
 
-
-
 struct MainState {
     logic: RefCell<GoLogic>,
     mouse_x_num: i32,
@@ -109,7 +109,7 @@ struct MainState {
 
 impl MainState {
     fn new() -> GameResult<MainState> {
-        Ok(MainState{
+        Ok(MainState {
             logic: RefCell::new(GoLogic::new()),
             mouse_x_num: -1,
             mouse_y_num: -1,
@@ -129,11 +129,38 @@ impl MainState {
 
     fn render_mouse_hint(&mut self, canvas: &mut Canvas, ctx: &mut Context) {
         let center = [self.mouse_x_num, self.mouse_y_num];
-        if self.logic.borrow().is_blakc_turn() {
-            render_black_square(canvas, ctx, center);
+        if 0 <= self.mouse_x_num
+            && self.mouse_x_num < NUM
+            && 0 <= self.mouse_y_num
+            && self.mouse_y_num < NUM
+        {
+            if self.logic.borrow().board[self.mouse_x_num as usize][self.mouse_y_num as usize]
+                == go_logic::Occupy::Free
+            {
+                if self.logic.borrow().is_blakc_turn() {
+                    render_black_square(canvas, ctx, center);
+                } else {
+                    render_white_square(canvas, ctx, center);
+                }
+            }
         }
-        else {
-            render_white_square(canvas, ctx, center);
+        // if self.logic.borrow().is_blakc_turn() {
+        //     render_black_square(canvas, ctx, center);
+        // } else {
+        //     render_white_square(canvas, ctx, center);
+        // }
+    }
+
+    fn render_stone(&mut self, canvas: &mut Canvas, ctx: &mut Context) {
+        for i in 0..NUM {
+            for j in 0..NUM {
+                let status = self.logic.borrow().board[i as usize][j as usize];
+                if status == go_logic::Occupy::Black {
+                    render_black_stone(canvas, ctx, [i, j]);
+                } else if status == go_logic::Occupy::White {
+                    render_white_stone(canvas, ctx, [i, j]);
+                }
+            }
         }
     }
 }
@@ -144,20 +171,13 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        // 木头颜色：RGB(160, 82, 45)
         let wood_color = Color::from_rgb(160, 82, 45);
 
         let mut canvas = graphics::Canvas::from_frame(ctx, wood_color);
 
         self.render_background(&mut canvas, ctx);
-
+        self.render_stone(&mut canvas, ctx);
         self.render_mouse_hint(&mut canvas, ctx);
-
-        render_black_stone(&mut canvas, ctx, [0, 0]);
-        render_black_stone(&mut canvas, ctx, [1, 1]);
-
-        render_white_stone(&mut canvas, ctx, [1, 0]);
-        render_white_stone(&mut canvas, ctx, [0, 1]);
 
         canvas.finish(ctx)?;
         Ok(())
@@ -173,7 +193,24 @@ impl event::EventHandler for MainState {
     ) -> GameResult {
         self.mouse_x_num = (x / UNIT).floor() as i32 - 1;
         self.mouse_y_num = 19 - (y / UNIT).floor() as i32;
-        println!("Mouse position: ({}, {})", self.mouse_x_num, self.mouse_y_num);
+        Ok(())
+    }
+
+    fn mouse_button_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        _button: event::MouseButton,
+        _x: f32,
+        _y: f32,
+    ) -> GameResult {
+        match _button {
+            event::MouseButton::Left => self
+                .logic
+                .borrow_mut()
+                .place_stone(self.mouse_x_num as i8, self.mouse_y_num as i8),
+            event::MouseButton::Right => println!("right button pressed !"),
+            _ => println!("some other button pressed !"),
+        }
         Ok(())
     }
 }
@@ -185,5 +222,5 @@ fn main() -> GameResult {
         .build()?;
 
     let state = MainState::new()?;
-    event::run(ctx, event_loop, state)
+    event::run(ctx, event_loop, state);
 }
