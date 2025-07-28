@@ -126,8 +126,10 @@ impl GoLogic {
     }
 
     pub fn place_stone(&mut self, x: i8, y: i8) {
+        println!("------------------------------------");
         if !self.in_bounds(x, y) {
             // return false;
+            println!("Position ({}, {}) not in bounds!", x, y);
             return;
         }
 
@@ -135,6 +137,7 @@ impl GoLogic {
 
         if self.board[x][y] != Occupy::Free {
             // return false;
+            println!("There is already a stone in position ({}, {})", x, y);
             return;
         }
 
@@ -145,31 +148,43 @@ impl GoLogic {
             _ => unreachable!(),
         };
 
+        match self.current_player {
+            Occupy::Black => println!("Now is black turn."),
+            Occupy::White => println!("Now is white turn."),
+            _ => println!("Neither black turn nor white turn, sonmething unexcepted happened."),
+        }
+
         let (own_liberties, _) = self.get_group_and_liberties(x, y);
+        println!("Liberty at position ({}, {}) is {}", x, y, own_liberties);
         let mut move_valid = own_liberties > 0;
+        match move_valid {
+            true => println!("Move of setting stone to position ({}, {}) is valid.", x, y),
+            false => println!("Move of setting stone to position ({}, {}) is NOT valid.", x, y),
+        }
         let mut captures = Vec::new();
 
-        if !move_valid {
-            for (dx, dy) in SEARCH_DIRECTIONS {
-                let nx = x.wrapping_add(dx as usize);
-                let ny = y.wrapping_add(dy as usize);
+        for (dx, dy) in SEARCH_DIRECTIONS {
+            let nx = x.wrapping_add(dx as usize);
+            let ny = y.wrapping_add(dy as usize);
 
-                if nx >= LOGIC_WIDTH || ny >= LOGIC_HEIGHT {
-                    continue;
-                }
+            if nx >= LOGIC_WIDTH || ny >= LOGIC_HEIGHT {
+                continue;
+            }
 
-                if self.board[nx][ny] == opponent {
-                    let (lib, group) = self.get_group_and_liberties(nx, ny);
-                    if lib == 0 {
-                        captures.push(group);
-                        move_valid = true;
-                    }
+            if self.board[nx][ny] == opponent {
+                let (lib, group) = self.get_group_and_liberties(nx, ny);
+                println!("Liberty of hostile stone at positon ({}, {}) is {}.", nx, ny, lib);
+                if lib == 0 {
+                    captures.push(group);
+                    move_valid = true;
+                    println!("Stone chain contains position ({}, {}) is removed.", nx, ny);
                 }
             }
         }
 
         if !move_valid {
             self.board[x][y] = Occupy::Free;
+            println!("Definately not a valid move because position at ({}, {}).", x, y);
             // return false;
             return;
         }
@@ -192,9 +207,14 @@ impl GoLogic {
         }
 
         if self.is_ko_violation(&cur_state) {
+            println!("Ko deteced.");
             self.board[x][y] = Occupy::Free;
             for group in captures {
-                self.capture_group(&group);
+                // self.capture_group(&group);
+                for ind in group {
+                    let (x_ind, y_ind) = ind;
+                    self.board[x_ind][y_ind] = opponent;
+                }
             }
             // return false;
             return;
