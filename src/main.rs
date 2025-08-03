@@ -88,15 +88,16 @@ impl event::EventHandler for MainState {
     ) -> GameResult {
         match _button {
             event::MouseButton::Left => {
-                self.logic.set_stone(
+                if self.logic.set_stone(
                     &BoardPosition {
                         x: self.mouse_x_num as usize,
                         y: self.mouse_y_num as usize,
                     },
                     &mut self.board,
-                );
-                self.last_x_num = self.mouse_x_num;
-                self.last_y_num = self.mouse_y_num;
+                ) {
+                    self.last_x_num = self.mouse_x_num;
+                    self.last_y_num = self.mouse_y_num;
+                }
             }
             event::MouseButton::Right => println!("right button pressed !"),
             _ => println!("some other button pressed !"),
