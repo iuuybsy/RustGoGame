@@ -2,10 +2,10 @@ use crate::game::board::{Board, BoardPosition};
 use crate::game::rule::Rule;
 use crate::game::stone::Occupy;
 use crate::render::basic_element::{render_circle, render_square};
-use crate::render::render_const::{BOARD_SIZE, DOT_RADIUS, STONE_OUTER_RADIUS};
+use crate::render::render_const::{BOARD_SIZE, DOT_RADIUS};
 use ggez::{
-    Context, ContextBuilder, GameResult, conf, event,
-    graphics::{self, Canvas, Color, DrawMode, DrawParam, Mesh},
+    Context,
+    graphics::{Canvas, Color},
 };
 
 fn render_white_square(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) {
@@ -45,7 +45,14 @@ fn render_red_dot(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) {
     render_circle(canvas, ctx, center, DOT_RADIUS, Color::RED);
 }
 
-pub fn last_move_hint(canvas: &mut Canvas, ctx: &mut Context, last_x_num: i32, last_y_num: i32) {
-    let center = [last_x_num, last_y_num];
-    render_red_dot(canvas, ctx, center);
+pub fn render_last_move_hint(
+    canvas: &mut Canvas,
+    ctx: &mut Context,
+    last_x_num: i32,
+    last_y_num: i32,
+) {
+    if last_x_num >= 0 && last_y_num >= 0 {
+        let center = [last_x_num, last_y_num];
+        render_red_dot(canvas, ctx, center);
+    }
 }

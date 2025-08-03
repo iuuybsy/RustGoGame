@@ -5,7 +5,7 @@ use crate::game::board::{Board, BoardPosition};
 use crate::game::rule::Rule;
 
 use crate::render::grid::render_background;
-use crate::render::hint::{last_move_hint, render_mouse_hint};
+use crate::render::hint::{render_last_move_hint, render_mouse_hint};
 use crate::render::render_const::UNIT;
 use crate::render::stones::render_stone;
 
@@ -20,6 +20,8 @@ struct MainState {
     logic: Rule,
     mouse_x_num: i32,
     mouse_y_num: i32,
+    last_x_num: i32,
+    last_y_num: i32,
 }
 
 impl MainState {
@@ -29,6 +31,8 @@ impl MainState {
             logic: Rule::new(),
             mouse_x_num: -1,
             mouse_y_num: -1,
+            last_x_num: -1,
+            last_y_num: -1,
         })
     }
 }
@@ -54,6 +58,8 @@ impl event::EventHandler for MainState {
             &self.board,
             &self.logic,
         );
+
+        render_last_move_hint(&mut canvas, ctx, self.last_x_num, self.last_y_num);
 
         canvas.finish(ctx)?;
         Ok(())
@@ -81,13 +87,17 @@ impl event::EventHandler for MainState {
         _y: f32,
     ) -> GameResult {
         match _button {
-            event::MouseButton::Left => self.logic.set_stone(
-                &BoardPosition {
-                    x: self.mouse_x_num as usize,
-                    y: self.mouse_y_num as usize,
-                },
-                &mut self.board,
-            ),
+            event::MouseButton::Left => {
+                self.logic.set_stone(
+                    &BoardPosition {
+                        x: self.mouse_x_num as usize,
+                        y: self.mouse_y_num as usize,
+                    },
+                    &mut self.board,
+                );
+                self.last_x_num = self.mouse_x_num;
+                self.last_y_num = self.mouse_y_num;
+            }
             event::MouseButton::Right => println!("right button pressed !"),
             _ => println!("some other button pressed !"),
         }

@@ -1,4 +1,4 @@
-use crate::game::board::{Board, BoardPosition};
+use crate::game::board::{Board, BoardError, BoardPosition};
 use crate::game::game_const::{BOARD_SIZE, SEARCH_DIRECTIONS};
 use crate::game::stone::Occupy;
 use std::collections::VecDeque;
@@ -123,7 +123,18 @@ impl Rule {
 
     fn capture_group(&mut self, group: &[(usize, usize)], board: &mut Board) {
         for &(x, y) in group {
-            board.remove_stone(BoardPosition { x: x, y: y });
+            if let Err(e) = board.remove_stone(BoardPosition { x: x, y: y }) {
+                println!(
+                    "Ths stone at position ({}, {}) is NOT removed successfully.",
+                    x, y
+                );
+                if let BoardError::PositionNotOccupied = e {
+                    println!(
+                        "Ths stone at position ({}, {}) is ALREADY moved, cannot move twice.",
+                        x, y
+                    );
+                }
+            }
         }
     }
 
@@ -144,7 +155,12 @@ impl Rule {
             return;
         }
 
-        board.set_stone(*pos, self.current_player);
+        if let Err(e) = board.set_stone(*pos, self.current_player) {
+            println!("Stone is NOT set successfully.");
+            if let BoardError::PositionOccupied = e {
+                println!("Position of ({}, {}) is OCCUPIED.", pos.x, pos.y);
+            }
+        }
         let opponent = match self.current_player {
             Occupy::Black => Occupy::White,
             Occupy::White => Occupy::Black,
@@ -220,6 +236,12 @@ impl Rule {
                 }
                 Err(e) => {
                     println!("Failed to remove the stone at ({}, {})", pos.x, pos.y);
+                    if let BoardError::PositionNotOccupied = e {
+                        println!(
+                            "Ths stone at position ({}, {}) is ALREADY moved, cannot move twice.",
+                            pos.x, pos.y
+                        );
+                    }
                     return;
                 }
             }
@@ -244,12 +266,26 @@ impl Rule {
 
         if self.is_ko_violation(&cur_state) {
             println!("Ko deteced.");
-            board.remove_stone(*pos);
+            if let Err(e) = board.remove_stone(*pos) {
+                println!("Failed to remove the stone at ({}, {})", pos.x, pos.y);
+                if let BoardError::PositionNotOccupied = e {
+                    println!(
+                        "Ths stone at position ({}, {}) is ALREADY moved, cannot move twice.",
+                        pos.x, pos.y
+                    );
+                }
+            }
             for group in captures {
                 // self.capture_group(&group);
                 for ind in group {
                     let (x_ind, y_ind) = ind;
-                    board.set_stone(BoardPosition { x: x_ind, y: y_ind }, opponent);
+                    if let Err(e) = board.set_stone(BoardPosition { x: x_ind, y: y_ind }, opponent)
+                    {
+                        println!("Stone is NOT set successfully.");
+                        if let BoardError::PositionOccupied = e {
+                            println!("Position of ({}, {}) is OCCUPIED.", x_ind, y_ind);
+                        }
+                    }
                 }
             }
             // return false;
@@ -258,6 +294,8 @@ impl Rule {
 
         self.board_history.push_back(cur_state);
         self.turn_history.push_back(self.current_player);
-        self.change_side();
+        if let Err(_) = self.change_side() {
+            println!("FAILED to change side!");
+        }
     }
 }

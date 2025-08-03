@@ -3,8 +3,8 @@ use crate::game::stone::Occupy;
 use crate::render::basic_element::render_circle;
 use crate::render::render_const::{BOARD_SIZE, STONE_INNER_RADIUS, STONE_OUTER_RADIUS};
 use ggez::{
-    Context, ContextBuilder, GameResult, conf, event,
-    graphics::{self, Canvas, Color, DrawMode, DrawParam, Mesh},
+    Context,
+    graphics::{Canvas, Color},
 };
 
 fn render_black_stone(canvas: &mut Canvas, ctx: &mut Context, center: [i32; 2]) {
