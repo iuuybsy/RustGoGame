@@ -143,22 +143,22 @@ impl Rule {
             && move_string == &self.board_history[self.board_history.len() - 2]
     }
 
-    pub fn set_stone(&mut self, pos: &BoardPosition, board: &mut Board) {
+    pub fn set_stone(&mut self, pos: &BoardPosition, board: &mut Board) -> bool {
         println!("------------------------------------");
 
         if board.get(pos) != Occupy::Free {
-            // return false;
             println!(
                 "There is already a stone in position ({}, {})",
                 pos.x, pos.y
             );
-            return;
+            return false;
         }
 
         if let Err(e) = board.set_stone(*pos, self.current_player) {
             println!("Stone is NOT set successfully.");
             if let BoardError::PositionOccupied = e {
                 println!("Position of ({}, {}) is OCCUPIED.", pos.x, pos.y);
+                return false;
             }
         }
         let opponent = match self.current_player {
@@ -170,7 +170,10 @@ impl Rule {
         match self.current_player {
             Occupy::Black => println!("Now is black turn."),
             Occupy::White => println!("Now is white turn."),
-            _ => println!("Neither black turn nor white turn, sonmething unexcepted happened."),
+            _ => {
+                println!("Neither black turn nor white turn, sonmething unexcepted happened.");
+                return false;
+            }
         }
 
         let (own_liberties, _) = self.get_group_and_liberties(pos, board);
@@ -221,18 +224,17 @@ impl Rule {
                     let cur_status = board.get(pos);
                     match cur_status {
                         Occupy::Free => {
-                            println!("Postion is ({}, {}) is CLEARED.", pos.x, pos.y)
+                            println!("Postion is ({}, {}) is CLEARED.", pos.x, pos.y);
                         }
                         _ => {
-                            println!("Postion is ({}, {}) is STILL OCCUPUED.", pos.x, pos.y)
+                            println!("Postion is ({}, {}) is STILL OCCUPUED.", pos.x, pos.y);
                         }
                     }
                     println!(
                         "Definately not a valid move because position at ({}, {}).",
                         pos.x, pos.y
                     );
-                    // return false;
-                    return;
+                    return false;
                 }
                 Err(e) => {
                     println!("Failed to remove the stone at ({}, {})", pos.x, pos.y);
@@ -242,7 +244,7 @@ impl Rule {
                             pos.x, pos.y
                         );
                     }
-                    return;
+                    return false;
                 }
             }
         }
@@ -288,8 +290,7 @@ impl Rule {
                     }
                 }
             }
-            // return false;
-            return;
+            return false;
         }
 
         self.board_history.push_back(cur_state);
@@ -297,5 +298,6 @@ impl Rule {
         if let Err(_) = self.change_side() {
             println!("FAILED to change side!");
         }
+        return true;
     }
 }
