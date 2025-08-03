@@ -12,7 +12,7 @@ use crate::render::stones::render_stone;
 use crate::render::render_const::{BOARD_HEIGHT, BOARD_WIDTH};
 use ggez::{
     Context, ContextBuilder, GameResult, conf, event,
-    graphics::{self, Canvas, Color, DrawMode, DrawParam, Mesh},
+    graphics::{self, Color},
 };
 
 struct MainState {
