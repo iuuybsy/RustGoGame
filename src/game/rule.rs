@@ -79,16 +79,6 @@ impl Rule {
         let mut liberties = 0;
         let color = board.get(pos);
 
-        match color {
-            Occupy::Black => {
-                println!("Counting Black stone liberty.")
-            }
-            Occupy::White => {
-                println!("Counting White stone liberty.")
-            }
-            _ => {}
-        }
-
         stack.push((pos.x, pos.y));
         self.visited[pos.x][pos.y] = true;
 
@@ -99,12 +89,9 @@ impl Rule {
                 let nx = cx.wrapping_add(dx as usize);
                 let ny = cy.wrapping_add(dy as usize);
 
-                let next_pos = BoardPosition::new(nx, ny);
-                if next_pos.is_none() {
+                let Some(next_pos) = BoardPosition::new(nx, ny) else {
                     continue;
-                }
-
-                let next_pos = next_pos.unwrap();
+                };
 
                 if self.visited[next_pos.x][next_pos.y] {
                     continue;
@@ -124,12 +111,8 @@ impl Rule {
     fn capture_group(&mut self, group: &[(usize, usize)], board: &mut Board) {
         for &(x, y) in group {
             if let Err(e) = board.remove_stone(BoardPosition { x: x, y: y }) {
-                println!(
-                    "Ths stone at position ({}, {}) is NOT removed successfully.",
-                    x, y
-                );
                 if let BoardError::PositionNotOccupied = e {
-                    println!(
+                    panic!(
                         "Ths stone at position ({}, {}) is ALREADY moved, cannot move twice.",
                         x, y
                     );
@@ -144,20 +127,12 @@ impl Rule {
     }
 
     pub fn set_stone(&mut self, pos: &BoardPosition, board: &mut Board) -> bool {
-        println!("------------------------------------");
-
         if board.get(pos) != Occupy::Free {
-            println!(
-                "There is already a stone in position ({}, {})",
-                pos.x, pos.y
-            );
             return false;
         }
 
         if let Err(e) = board.set_stone(*pos, self.current_player) {
-            println!("Stone is NOT set successfully.");
             if let BoardError::PositionOccupied = e {
-                println!("Position of ({}, {}) is OCCUPIED.", pos.x, pos.y);
                 return false;
             }
         }
@@ -167,31 +142,8 @@ impl Rule {
             _ => unreachable!(),
         };
 
-        match self.current_player {
-            Occupy::Black => println!("Now is black turn."),
-            Occupy::White => println!("Now is white turn."),
-            _ => {
-                println!("Neither black turn nor white turn, sonmething unexcepted happened.");
-                return false;
-            }
-        }
-
         let (own_liberties, _) = self.get_group_and_liberties(pos, board);
-        println!(
-            "Liberty at position ({}, {}) is {}",
-            pos.x, pos.y, own_liberties
-        );
         let mut move_valid = own_liberties > 0;
-        match move_valid {
-            true => println!(
-                "Move of setting stone to position ({}, {}) is valid.",
-                pos.x, pos.y
-            ),
-            false => println!(
-                "Move of setting stone to position ({}, {}) is NOT valid.",
-                pos.x, pos.y
-            ),
-        }
         let mut captures = Vec::new();
 
         for (dx, dy) in SEARCH_DIRECTIONS {
@@ -206,14 +158,9 @@ impl Rule {
 
             if board.get(&next_pos) == opponent {
                 let (lib, group) = self.get_group_and_liberties(&next_pos, board);
-                println!(
-                    "Liberty of hostile stone at positon ({}, {}) is {}.",
-                    nx, ny, lib
-                );
                 if lib == 0 {
                     captures.push(group);
                     move_valid = true;
-                    println!("Stone chain contains position ({}, {}) is removed.", nx, ny);
                 }
             }
         }
@@ -221,25 +168,11 @@ impl Rule {
         if !move_valid {
             match board.remove_stone(*pos) {
                 Ok(()) => {
-                    let cur_status = board.get(pos);
-                    match cur_status {
-                        Occupy::Free => {
-                            println!("Postion is ({}, {}) is CLEARED.", pos.x, pos.y);
-                        }
-                        _ => {
-                            println!("Postion is ({}, {}) is STILL OCCUPUED.", pos.x, pos.y);
-                        }
-                    }
-                    println!(
-                        "Definately not a valid move because position at ({}, {}).",
-                        pos.x, pos.y
-                    );
                     return false;
                 }
                 Err(e) => {
-                    println!("Failed to remove the stone at ({}, {})", pos.x, pos.y);
                     if let BoardError::PositionNotOccupied = e {
-                        println!(
+                        panic!(
                             "Ths stone at position ({}, {}) is ALREADY moved, cannot move twice.",
                             pos.x, pos.y
                         );
@@ -267,26 +200,20 @@ impl Rule {
         }
 
         if self.is_ko_violation(&cur_state) {
-            println!("Ko deteced.");
             if let Err(e) = board.remove_stone(*pos) {
-                println!("Failed to remove the stone at ({}, {})", pos.x, pos.y);
                 if let BoardError::PositionNotOccupied = e {
-                    println!(
+                    panic!(
                         "Ths stone at position ({}, {}) is ALREADY moved, cannot move twice.",
                         pos.x, pos.y
                     );
                 }
             }
             for group in captures {
-                // self.capture_group(&group);
                 for ind in group {
                     let (x_ind, y_ind) = ind;
                     if let Err(e) = board.set_stone(BoardPosition { x: x_ind, y: y_ind }, opponent)
                     {
-                        println!("Stone is NOT set successfully.");
-                        if let BoardError::PositionOccupied = e {
-                            println!("Position of ({}, {}) is OCCUPIED.", x_ind, y_ind);
-                        }
+                        if let BoardError::PositionOccupied = e {}
                     }
                 }
             }
@@ -296,7 +223,7 @@ impl Rule {
         self.board_history.push_back(cur_state);
         self.turn_history.push_back(self.current_player);
         if let Err(_) = self.change_side() {
-            println!("FAILED to change side!");
+            panic!("Player side can NOT be Occupy::Free!");
         }
         return true;
     }
