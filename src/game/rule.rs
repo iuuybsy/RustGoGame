@@ -171,6 +171,7 @@ impl Rule {
         if !move_valid {
             println!("Set stone to ({}, {}) is invalid", pos.x, pos.y);
             board.remove_stone(*pos);
+            return false;
         }
 
         let mut cur_state = board.get_board_string();
