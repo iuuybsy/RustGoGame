@@ -2,6 +2,7 @@ mod game;
 mod render;
 
 use crate::game::board::{Board, BoardPosition};
+use crate::game::game_const::BOARD_SIZE;
 use crate::game::rule::Rule;
 
 use crate::render::grid::render_background;
@@ -34,6 +35,14 @@ impl MainState {
             last_x_num: -1,
             last_y_num: -1,
         })
+    }
+
+    fn is_mouse_in_board_area(&self) -> bool {
+        let limit = BOARD_SIZE as i32;
+        self.mouse_x_num >= 0
+            && self.mouse_x_num < limit
+            && self.mouse_y_num >= 0
+            && self.mouse_y_num < limit
     }
 }
 
@@ -88,19 +97,21 @@ impl event::EventHandler for MainState {
     ) -> GameResult {
         match _button {
             event::MouseButton::Left => {
-                if self.logic.set_stone(
-                    &BoardPosition {
-                        x: self.mouse_x_num as usize,
-                        y: self.mouse_y_num as usize,
-                    },
-                    &mut self.board,
-                ) {
-                    self.last_x_num = self.mouse_x_num;
-                    self.last_y_num = self.mouse_y_num;
+                if self.is_mouse_in_board_area() {
+                    if self.logic.set_stone(
+                        &BoardPosition {
+                            x: self.mouse_x_num as usize,
+                            y: self.mouse_y_num as usize,
+                        },
+                        &mut self.board,
+                    ) {
+                        self.last_x_num = self.mouse_x_num;
+                        self.last_y_num = self.mouse_y_num;
+                    }
                 }
             }
-            event::MouseButton::Right => println!("right button pressed !"),
-            _ => println!("some other button pressed !"),
+            event::MouseButton::Right => {}
+            _ => {}
         }
         Ok(())
     }
@@ -108,8 +119,13 @@ impl event::EventHandler for MainState {
 
 fn main() -> GameResult {
     let (ctx, event_loop) = ContextBuilder::new("wood_square", "author")
-        .window_setup(conf::WindowSetup::default().title("Wood Square"))
-        .window_mode(conf::WindowMode::default().dimensions(BOARD_WIDTH, BOARD_HEIGHT))
+        .window_setup(conf::WindowSetup::default())
+        .window_mode(
+            conf::WindowMode::default()
+                .dimensions(BOARD_WIDTH, BOARD_HEIGHT)
+                .resizable(false)
+                .fullscreen_type(conf::FullscreenType::Windowed),
+        )
         .build()?;
 
     let state = MainState::new()?;
