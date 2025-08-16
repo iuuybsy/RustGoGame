@@ -4,7 +4,6 @@ use crate::game::stone::Occupy;
 #[derive(Debug)]
 pub enum BoardError {
     PositionOccupied,
-    PositionNotOccupied,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,12 +37,9 @@ impl Board {
         Ok(())
     }
 
-    pub fn remove_stone(&mut self, pos: BoardPosition) -> Result<(), BoardError> {
-        if self.grid[pos.x][pos.y] == Occupy::Free {
-            return Err(BoardError::PositionNotOccupied);
-        }
+    pub fn remove_stone(&mut self, pos: BoardPosition) {
+        println!("Removing stone -> ({}, {})", pos.x, pos.y);
         self.grid[pos.x][pos.y] = Occupy::Free;
-        Ok(())
     }
 
     pub fn get(&self, pos: &BoardPosition) -> Occupy {

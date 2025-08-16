@@ -1,4 +1,4 @@
-use crate::game::board::{Board, BoardError, BoardPosition};
+use crate::game::board::{Board, BoardPosition};
 use crate::game::game_const::{BOARD_SIZE, SEARCH_DIRECTIONS};
 use crate::game::stone::Occupy;
 use std::collections::VecDeque;
@@ -109,15 +109,9 @@ impl Rule {
     }
 
     fn capture_group(&mut self, group: &[(usize, usize)], board: &mut Board) {
+        println!("Start capturing ....");
         for &(x, y) in group {
-            if let Err(e) = board.remove_stone(BoardPosition { x: x, y: y }) {
-                if let BoardError::PositionNotOccupied = e {
-                    panic!(
-                        "Ths stone at position ({}, {}) is ALREADY moved, cannot move twice.",
-                        x, y
-                    );
-                }
-            }
+            board.remove_stone(BoardPosition { x: x, y: y })
         }
     }
 
@@ -127,15 +121,17 @@ impl Rule {
     }
 
     pub fn set_stone(&mut self, pos: &BoardPosition, board: &mut Board) -> bool {
-        if board.get(pos) != Occupy::Free {
+        if let Err(_) = board.set_stone(*pos, self.current_player) {
             return false;
         }
 
-        if let Err(e) = board.set_stone(*pos, self.current_player) {
-            if let BoardError::PositionOccupied = e {
-                return false;
-            }
+        println!("-----------------------------------------");
+        match self.current_player {
+            Occupy::Black => println!("Set black stone to ({}, {})", pos.x, pos.y),
+            Occupy::White => println!("Set white stone to ({}, {})", pos.x, pos.y),
+            _ => {}
         }
+
         let opponent = match self.current_player {
             Occupy::Black => Occupy::White,
             Occupy::White => Occupy::Black,
@@ -143,6 +139,12 @@ impl Rule {
         };
 
         let (own_liberties, _) = self.get_group_and_liberties(pos, board);
+
+        println!(
+            "Before really set stone, liberty at ({}, {}) is {}",
+            pos.x, pos.y, own_liberties
+        );
+
         let mut move_valid = own_liberties > 0;
         let mut captures = Vec::new();
 
@@ -161,25 +163,14 @@ impl Rule {
                 if lib == 0 {
                     captures.push(group);
                     move_valid = true;
+                    println!("Enemy at ({}, {}) is dead", nx, ny);
                 }
             }
         }
 
         if !move_valid {
-            match board.remove_stone(*pos) {
-                Ok(()) => {
-                    return false;
-                }
-                Err(e) => {
-                    if let BoardError::PositionNotOccupied = e {
-                        panic!(
-                            "Ths stone at position ({}, {}) is ALREADY moved, cannot move twice.",
-                            pos.x, pos.y
-                        );
-                    }
-                    return false;
-                }
-            }
+            println!("Set stone to ({}, {}) is invalid", pos.x, pos.y);
+            board.remove_stone(*pos);
         }
 
         let mut cur_state = board.get_board_string();
@@ -200,20 +191,13 @@ impl Rule {
         }
 
         if self.is_ko_violation(&cur_state) {
-            if let Err(e) = board.remove_stone(*pos) {
-                if let BoardError::PositionNotOccupied = e {
-                    panic!(
-                        "Ths stone at position ({}, {}) is ALREADY moved, cannot move twice.",
-                        pos.x, pos.y
-                    );
-                }
-            }
+            println!("Ko detexted");
+            board.remove_stone(*pos);
             for group in captures {
                 for ind in group {
                     let (x_ind, y_ind) = ind;
-                    if let Err(e) = board.set_stone(BoardPosition { x: x_ind, y: y_ind }, opponent)
+                    if let Err(_) = board.set_stone(BoardPosition { x: x_ind, y: y_ind }, opponent)
                     {
-                        if let BoardError::PositionOccupied = e {}
                     }
                 }
             }
