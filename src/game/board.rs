@@ -38,7 +38,6 @@ impl Board {
     }
 
     pub fn remove_stone(&mut self, pos: BoardPosition) {
-        println!("Removing stone -> ({}, {})", pos.x, pos.y);
         self.grid[pos.x][pos.y] = Occupy::Free;
     }
 

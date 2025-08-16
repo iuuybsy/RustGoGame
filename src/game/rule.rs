@@ -109,7 +109,6 @@ impl Rule {
     }
 
     fn capture_group(&mut self, group: &[(usize, usize)], board: &mut Board) {
-        println!("Start capturing ....");
         for &(x, y) in group {
             board.remove_stone(BoardPosition { x: x, y: y })
         }
@@ -125,13 +124,6 @@ impl Rule {
             return false;
         }
 
-        println!("-----------------------------------------");
-        match self.current_player {
-            Occupy::Black => println!("Set black stone to ({}, {})", pos.x, pos.y),
-            Occupy::White => println!("Set white stone to ({}, {})", pos.x, pos.y),
-            _ => {}
-        }
-
         let opponent = match self.current_player {
             Occupy::Black => Occupy::White,
             Occupy::White => Occupy::Black,
@@ -139,11 +131,6 @@ impl Rule {
         };
 
         let (own_liberties, _) = self.get_group_and_liberties(pos, board);
-
-        println!(
-            "Before really set stone, liberty at ({}, {}) is {}",
-            pos.x, pos.y, own_liberties
-        );
 
         let mut move_valid = own_liberties > 0;
         let mut captures = Vec::new();
@@ -163,13 +150,11 @@ impl Rule {
                 if lib == 0 {
                     captures.push(group);
                     move_valid = true;
-                    println!("Enemy at ({}, {}) is dead", nx, ny);
                 }
             }
         }
 
         if !move_valid {
-            println!("Set stone to ({}, {}) is invalid", pos.x, pos.y);
             board.remove_stone(*pos);
             return false;
         }
@@ -192,7 +177,6 @@ impl Rule {
         }
 
         if self.is_ko_violation(&cur_state) {
-            println!("Ko detexted");
             board.remove_stone(*pos);
             for group in captures {
                 for ind in group {
