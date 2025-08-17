@@ -58,4 +58,25 @@ impl Board {
         }
         s
     }
+
+    pub fn modify_board_from_string(&mut self, state_str: &String) {
+        let chars: Vec<char> = state_str.chars().collect();
+
+        // 按行优先顺序解析字符
+        for row in 0..BOARD_SIZE {
+            for col in 0..BOARD_SIZE {
+                let idx = row * BOARD_SIZE + col;
+
+                self.grid[row][col] = {
+                    if let Some('0') = chars.get(idx) {
+                        Occupy::Free
+                    } else if let Some('1') = chars.get(idx) {
+                        Occupy::Black
+                    } else {
+                        Occupy::White
+                    }
+                }
+            }
+        }
+    }
 }

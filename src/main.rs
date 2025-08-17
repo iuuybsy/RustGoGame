@@ -16,6 +16,8 @@ use ggez::{
     graphics::{self, Color},
 };
 
+use std::collections::VecDeque;
+
 struct MainState {
     board: Board,
     logic: Rule,
@@ -23,6 +25,7 @@ struct MainState {
     mouse_y_num: i32,
     last_x_num: i32,
     last_y_num: i32,
+    move_history: VecDeque<(i32, i32)>,
 }
 
 impl MainState {
@@ -34,6 +37,7 @@ impl MainState {
             mouse_y_num: -1,
             last_x_num: -1,
             last_y_num: -1,
+            move_history: VecDeque::with_capacity(300),
         })
     }
 
@@ -107,10 +111,24 @@ impl event::EventHandler for MainState {
                     ) {
                         self.last_x_num = self.mouse_x_num;
                         self.last_y_num = self.mouse_y_num;
+                        self.move_history
+                            .push_back((self.last_x_num, self.last_y_num));
                     }
                 }
             }
-            event::MouseButton::Right => {}
+            event::MouseButton::Right => {
+                if self.logic.regret(&mut self.board) {
+                    self.move_history.pop_back();
+                    if self.move_history.is_empty() {
+                        self.last_x_num = -1;
+                        self.last_y_num = -1;
+                    } else {
+                        let last_move_tuple = self.move_history.back().unwrap();
+                        self.last_x_num = last_move_tuple.0;
+                        self.last_y_num = last_move_tuple.1;
+                    }
+                }
+            }
             _ => {}
         }
         Ok(())
