@@ -196,4 +196,33 @@ impl Rule {
         }
         return true;
     }
+
+    pub fn regret(&mut self, board: &mut Board) -> bool {
+        if self.board_history.is_empty() {
+            return false;
+        }
+
+        let opponent = match self.current_player {
+            Occupy::Black => Occupy::White,
+            Occupy::White => Occupy::Black,
+            _ => unreachable!(),
+        };
+
+        self.current_player = opponent;
+        self.turn_history.pop_back();
+        self.board_history.pop_back();
+
+        if self.board_history.is_empty() {
+            for i in 0..BOARD_SIZE {
+                for j in 0..BOARD_SIZE {
+                    board.remove_stone(BoardPosition { x: i, y: j });
+                }
+            }
+            return true;
+        }
+
+        let last_state = self.board_history.back().unwrap();
+        board.modify_board_from_string(last_state);
+        return true;
+    }
 }
